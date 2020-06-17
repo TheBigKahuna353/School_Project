@@ -68,6 +68,9 @@ class App:
         self.clock = pygame.time.Clock()
         self.current_screen = self.Main_menu
         self.sys_font = pygame.font.Font(pygame.font.match_font('Calibri'), 40)
+        self.mouse_drag_start = None
+        self.swipe_dir = []
+        self.swipe = ''
         
         #hunt specefic vars
         self.hunt_id = None
@@ -118,20 +121,37 @@ class App:
         surf2 = pygame.Surface((60,60),pygame.SRCALPHA)
         pygame.draw.circle(surf, (255,255,255),(30,30),30,4)
         pygame.draw.circle(surf2, (255,255,255),(30,30),30,8)
+        button_theme_new = button_theme.copy()
+        button_theme_new.update({'image': surf, 'hover_image': surf2 })         
         self.Camera_take_photo_button = UI.Button(self.size[0]//2 - 30,self.size[1] - 90,
                                                   param_options=button_theme_new)
         
         #Settings
-        self.settings_check_boxes = [UI.CheckBox(200,150 + 50*i,40,button_theme) for i in range(3)]
-        
+        self.settings_check_boxes = [UI.CheckBox(200,150 + 50*i,40,
+                                                 {'background_color': (200,200,200),
+                                                  'outline': True}
+                                                 ) for i in range(3)]
+        self.setting_back_button = UI.Button(50, 400, 200, 40,
+                                             {'background_color': (255, 0, 0),
+                                              'curve': 0.4,
+                                              'text': 'Back',
+                                              'outline': True
+                                              }
+                                             )
         #all hunts
         self.hunt_names = db.get_all_hunts() + [['Cancel']]
-        self.hunt_names_buttons = [UI.Button(50, 100 + 50*i,200, 40, {
+        self.hunt_names_buttons = [UI.Button(50, 100 + 100*i,200, 40, {
                                              'background_color': (255,0,0),
                                              'outline': True,
                                              'text': self.hunt_names[i][0],
                                              'curve': 0.4}
                                              ) for i in range(len(self.hunt_names))]
+        num_hunts = db.num_hunts()
+        if num_hunts > 3:
+            scroll_amount = (num_hunts - 3) * 100
+            self.hunt_screen_scroll = UI.Scroll({'range_y': scroll_amount})
+        else:
+            self.hunt_screen_scroll = None
         
         
     #the main gam loop
@@ -163,11 +183,15 @@ class App:
     def All_hunts(self):
         self.screen.fill((255,255,255))
         for i, button in enumerate(self.hunt_names_buttons):
+            if self.hunt_screen_scroll is not None:
+                button.Scroll(self.hunt_screen_scroll[0], self.hunt_screen_scroll[1])
             if button.update():
                 if i < len(self.hunt_names_buttons) -1:
                     self.all_questions = db.get_questions(i)
                     self.hunt_id = i
                 self.current_screen = self.Main_menu
+        if self.hunt_screen_scroll is not None:
+            self.hunt_screen_scroll.update()
     
     #check for events
     def Events(self):
@@ -177,6 +201,7 @@ class App:
                 self.running = False   
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 self.click = True
+                self.mouse_drag_start = pygame.mouse.get_pos()
                 self.startHold = pygame.time.get_ticks()
             elif e.type == pygame.MOUSEBUTTONUP:
                 self.hold = False
@@ -187,6 +212,9 @@ class App:
             if pygame.time.get_ticks() - self.startHold > 100:
                 self.hold = True
                 self.startHold = None
+        if self.hold:
+            self.swipe_dir = [x - y for x,y in zip(self.mouse_drag_start, pygame.mouse.get_pos())]
+            print(self.swipe_dir)
 
     #settings screen
     def Settings(self):
@@ -199,6 +227,8 @@ class App:
             self.screen.blit(obj,(20,150 + 50*i))    
         for checkbox in self.settings_check_boxes:
             checkbox.update()
+        if self.setting_back_button.update():
+            self.current_screen = self.Camera_screen
     
     #screen that shows the current question for hunt
     def Question(self):

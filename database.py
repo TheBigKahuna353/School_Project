@@ -32,3 +32,6 @@ def get_all_hunts():
     a = cursor.fetchall()
     print(a)
     return a
+
+def num_hunts():
+    return len(get_all_hunts())
